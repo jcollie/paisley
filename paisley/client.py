@@ -453,7 +453,7 @@ class CouchDB(object):
         
         kwargs["headers"]["Accept"] = ["application/json"]
         kwargs["headers"]["Content-Type"] = ["application/json"]
-        kwargs["headers"[["User-Agent"] = ["paisley"]
+        kwargs["headers"]["User-Agent"] = ["paisley"]
         
         if not kwargs.has_key("method"):
             kwargs["method"] == "GET"
