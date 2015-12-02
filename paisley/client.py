@@ -13,7 +13,7 @@ import json
 from encodings import utf_8
 import logging
 import types
-import cookielib
+import http.cookiejar
 
 from urllib import urlencode, quote
 from zope.interface import implements
@@ -173,7 +173,7 @@ class CouchDB(object):
             self.log.debug('using paisley.tcompat.CookieAgent')
 
         agent = Agent(reactor)
-        self.client = CookieAgent(agent, cookielib.CookieJar())
+        self.client = CookieAgent(agent, http.cookiejar.CookieJar())
         self.host = host
         self.port = int(port)
         if isinstance(username, str):
