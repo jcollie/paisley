@@ -644,7 +644,7 @@ class CouchDB(object):
 
         headers["User-Agent"] = ["paisley"]
 
-        url = str(self.url_template % (uri,))
+        url = (self.url_template % (uri,)).encode('utf-8')
 
         if self.username:
             headers["Authorization"] = ["Basic %s" % b64encode(
