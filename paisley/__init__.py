@@ -4,4 +4,4 @@
 # Copyright (c) 2007-2008
 # See LICENSE for details.
 
-from client import CouchDB
+from paisley.client import CouchDB
