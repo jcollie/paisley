@@ -8,7 +8,7 @@
 CouchDB client.
 """
 
-from paisley import pjson as json
+import json
 
 from encodings import utf_8
 import logging
