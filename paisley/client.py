@@ -633,7 +633,7 @@ class CouchDB(object):
 
             return body
 
-        url = url.encode('utf-8')
+        url = uri.encode('utf-8')
 
         if not headers:
             headers = {}
