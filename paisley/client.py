@@ -16,7 +16,6 @@ import types
 import http.cookiejar
 
 from urllib.parse import urlencode, quote
-from zope.interface import implements
 
 from twisted.internet import defer
 from twisted.internet import defer, task
@@ -72,11 +71,11 @@ except ImportError:
 SOCK_TIMEOUT = 300
 
 
+@implementer(IBodyProducer)
 class StringProducer(object):
     """
     Body producer for t.w.c.Agent
     """
-    implements(IBodyProducer)
 
     def __init__(self, body):
         self.body = body
