@@ -44,7 +44,7 @@ def short_print(body, trim=255):
     # don't go nuts on possibly huge log entries
     # since we're a library we should try to avoid calling this and instead
     # write awesome logs
-    if not isinstance(body, basestring):
+    if not isinstance(body, str):
         body = str(body)
     if len(body) < trim:
         return body.replace('\n', '\\n')
