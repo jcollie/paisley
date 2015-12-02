@@ -1,97 +1,83 @@
-# -*- Mode: Python -*-
+# -*- Mode: Python; test-case-name: paisley.test.test_util -*-
 # vi:si:et:sw=4:sts=4:ts=4
-
-# Copyright (c) 2007-2008
-# See LICENSE for details.
-
-import signal
-import re
-import os
-import tempfile
-import subprocess
 
 from twisted.trial import unittest
 
-from paisley import client
+from paisley.test import util
 
 
-class CouchDBWrapper(object):
-    """
-    I wrap an external CouchDB instance started and stopped for testing.
-
-    @ivar tempdir: the temporary directory used for logging and running
-    @ivar process: the CouchDB process
-    @type process: L{subprocess.Popen}
-    @ivar port:    the randomly assigned port on which CouchDB listens
-    @type port:    str
-    @ivar db:      the CouchDB client to this server
-    @type db:      L{client.CouchDB}
-    """
-
-    def start(self):
-        self.tempdir = tempfile.mkdtemp(suffix='.paisley.test')
-
-        path = os.path.join(os.path.dirname(__file__),
-            'test.ini.template')
-        handle = open(path)
-
-        conf = handle.read() % {
-            'tempdir': self.tempdir,
-        }
-
-        confPath = os.path.join(self.tempdir, 'test.ini')
-        handle = open(confPath, 'w')
-        handle.write(conf)
-        handle.close()
-
-        # create the dirs from the template
-        os.mkdir(os.path.join(self.tempdir, 'lib'))
-        os.mkdir(os.path.join(self.tempdir, 'log'))
-
-        args = ['couchdb', '-a', confPath]
-        null = open('/dev/null', 'w')
-        self.process = subprocess.Popen(
-            args, env=None, stdout=null, stderr=null)
-
-        # find port
-        logPath = os.path.join(self.tempdir, 'log', 'couch.log')
-        while not os.path.exists(logPath):
-            pass
-
-        while os.stat(logPath).st_size == 0:
-            pass
-
-        PORT_RE = re.compile(
-            'Apache CouchDB has started on http://127.0.0.1:(?P<port>\d+)')
-
-        handle = open(logPath)
-        line = handle.read()
-        m = PORT_RE.search(line)
-        if not m:
-            raise Exception("Cannot find port in line %s" % line)
-
-        self.port = int(m.group('port'))
-        self.db = client.CouchDB(host='localhost', port=self.port)
-
-    def stop(self):
-        self.process.terminate()
-
-        os.system("rm -rf %s" % self.tempdir)
-
-
-class CouchDBTestCase(unittest.TestCase):
-    """
-    I am a TestCase base class for tests against a real CouchDB server.
-    I start a server during setup and stop it during teardown.
-
-    @ivar  db: the CouchDB client
-    @type  db: L{paisley.client.CouchDB}
-    """
+class ConfigParserTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.wrapper = CouchDBWrapper()
-        self.wrapper.start()
-        self.db = self.wrapper.db
+        self.config = util.CouchDBConfig()
 
-    def tearDown(self):
-        self.wrapper.stop()
+    def test_getQueryServers(self):
+        servers = self.config.parser.items('query_servers')
+
+        # there is no guarantee someone is using couchjs for javascript,
+        # but this seems like the least breakable way to test
+        for name, arg in servers:
+            if name == 'javascript':
+                self.failUnless('couchjs' in arg)
+
+
+class CouchJSQueryTestCase(util.CouchQSTestCase):
+    """
+    I am a base class for tests.
+    """
+    QueryServerClass = util.CouchJSWrapper
+
+    def test_parseMessage(self):
+        message = "function raised exception (new TypeError(\"" + \
+            " doc.fragments is undefined\", \"\", 18))" + \
+            " with doc._id 8877AFF9789988EE"
+
+        try:
+            self.wrapper.parseMessage(message)
+        except util.JSQueryServerException, e:
+            self.assertEquals(e.line, 18)
+            self.assertEquals(e.docId, u'8877AFF9789988EE')
+
+    def test_map(self):
+        func = """
+function(doc) {
+    if(doc.score > 50)
+        emit(null, {'player_name': doc.name});
+}
+"""
+        doc = '''
+{
+    "_id":"8877AFF9789988EE",
+    "_rev":"3-235256484",
+    "name":"John Smith",
+    "score": 60
+}'''
+        out = self.wrapper.map(func, doc)
+        self.assertEquals(out, '[[[null,{"player_name":"John Smith"}]]]')
+
+        doc = '''
+{
+    "_id":"9590AEB4585637FE",
+    "_rev":"1-674684684",
+    "name":"Jane Parker",
+    "score": 43
+}'''
+        out = self.wrapper.map(func, doc)
+        self.assertEquals(out, '[[]]')
+
+    def test_reduce(self):
+        func = "function(k, v) { return sum(v); }"
+        results = """
+[
+    [[1,"699b524273605d5d3e9d4fd0ff2cb272"],10],
+    [[2,"c081d0f69c13d2ce2050d684c7ba2843"],20],
+    [[null,"foobar"],3]
+]"""
+        out = self.wrapper.reduce(func, "".join(results.split()))
+        self.assertEquals(out, '[true,[33]]')
+
+    def test_rereduce(self):
+        func = "function(k, v, r) { return sum(v); }"
+        results = "[33,55,66]"
+        out = self.wrapper.rereduce(func, results)
+        self.assertEquals(out, '[true,[154]]')

@@ -8,7 +8,9 @@
 Object mapping view API.
 """
 
+
 class View(object):
+
     def __init__(self, couch, dbName, docId, viewId, objectFactory, **options):
         """
         objectFactory should implement fromDict, taking a dictionary containing
@@ -28,20 +30,22 @@ class View(object):
         # offset
         for x in result['rows']:
             obj = self._objectFactory()
-            if options.get('include_docs', False):
+            if options.get('include_docs', False) is True:
                 obj.fromDict(x['doc'])
-                self._couch.mapped(self._dbName, x['id'], obj)
+                # FIXME: why does this not arrive as unicode ?
+                self._couch.mapped(unicode(x['id']), obj)
             else:
+                # if we don't have the doc, don't cache
                 obj.fromDict(x)
             yield obj
 
     # how do we know if it is bound already ?
+
     def queryView(self):
         d = self._couch.openView(
             self._dbName,
             self._docId,
             self._viewId,
-            **self._options
-            )
+            **self._options)
         d.addCallback(self._mapObjects, **self._options)
         return d

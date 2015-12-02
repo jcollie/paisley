@@ -11,7 +11,7 @@ from twisted.trial import unittest
 
 from paisley import client, changes
 
-from paisley.test import test_util
+from paisley.test import util
 
 
 class FakeNotifier(object):
@@ -43,14 +43,16 @@ class TestStubChangeReceiver(unittest.TestCase):
         self.assertEquals(notifier.changes[2]["deleted"], True)
 
 
-class BaseTestCase(test_util.CouchDBTestCase):
+class BaseTestCase(util.CouchDBTestCase):
     tearing = False # set to True during teardown so we can assert
+    expect_tearing = False
 
     def setUp(self):
-        test_util.CouchDBTestCase.setUp(self)
+        util.CouchDBTestCase.setUp(self)
 
     def tearDown(self):
         self.tearing = True
+        util.CouchDBTestCase.tearDown(self)
 
     def waitForNextCycle(self):
         # Wait for the reactor to cycle.
@@ -348,7 +350,7 @@ class ConnectionLostTestCase(BaseTestCase, changes.ChangeListener):
 
     def connectionLost(self, reason):
         # make sure we lost the connection before teardown
-        self.failIf(self.tearing,
+        self.failIf(self.tearing and self.expect_tearing,
             'connectionLost should be called before teardown')
 
         self.failIf(reason.check(error.ConnectionDone))
@@ -357,5 +359,68 @@ class ConnectionLostTestCase(BaseTestCase, changes.ChangeListener):
         self.failUnless(reason.check(_newclient.ResponseFailed))
 
     def testKill(self):
+        self.expect_tearing = True
         self.wrapper.process.terminate()
         return self.waitForNextCycle()
+
+
+class CacheChangeReceiverTestCase(ChangeReceiverTestCase):
+
+    def setUp(self):
+        ChangeReceiverTestCase.setUp(self)
+
+        self.cache = client.MemoryCache()
+        self.db = client.CouchDB('localhost',
+            self.wrapper.port,
+            username='testpaisley', password='testpaisley',
+            cache=self.cache)
+        return self.db.createDB('test')
+
+    def testChanges(self):
+        notifier = changes.ChangeNotifier(self.db, 'test')
+        notifier.addCache(self.cache)
+        notifier.addListener(self)
+
+        d = notifier.start()
+
+        # create a doc
+        d.addCallback(lambda _: self.db.saveDoc('test', {
+            'key': 'value',
+        }))
+        d.addCallback(lambda r: setattr(self, 'firstid', r['id']))
+
+        # get it a first time; test that cache didn't have it but cached it
+        d.addCallback(lambda _: self.db.openDoc('test', self.firstid))
+        d.addCallback(lambda r: setattr(self, 'first', r))
+        d.addCallback(lambda _: self.assertEquals(self.first['key'], 'value'))
+        d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 1))
+        d.addCallback(lambda _: self.assertEquals(self.cache.hits, 0))
+        d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
+
+        # get it a second time; test cache did have it
+        d.addCallback(lambda _: self.db.openDoc('test', self.firstid))
+        d.addCallback(lambda r: self.assertEquals(r['key'], 'value'))
+        d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 2))
+        d.addCallback(lambda _: self.assertEquals(self.cache.hits, 1))
+        d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
+
+        # change it; wait for the change to come in
+
+        def changeCallback(_):
+            self.first['key'] = 'othervalue'
+            d2 = self.waitForChange()
+            self.db.saveDoc('test', self.first, docId=self.firstid)
+            return d2
+        d.addCallback(changeCallback)
+        d.addCallback(lambda _: self.assertEquals(self.cache.cached, 0))
+
+        # get it a second time; it was changed, so test cache did not have it
+        d.addCallback(lambda _: self.db.openDoc('test', self.firstid))
+        d.addCallback(lambda r: self.assertEquals(r['key'], 'othervalue'))
+        d.addCallback(lambda _: self.assertEquals(self.cache.lookups, 3))
+        d.addCallback(lambda _: self.assertEquals(self.cache.hits, 1))
+        d.addCallback(lambda _: self.assertEquals(self.cache.cached, 1))
+
+        d.addCallback(lambda _: notifier.stop())
+        d.addCallback(lambda _: self.waitForNextCycle())
+        return d
