@@ -177,11 +177,7 @@ class CouchDB(object):
         self.client = CookieAgent(agent, http.cookiejar.CookieJar())
         self.host = host
         self.port = int(port)
-        if isinstance(username, str):
-            username = unicode(username)
         self.username = username
-        if isinstance(password, str):
-            password = unicode(password)
         self.password = password
         self._cache = cache
         self._authenticator = None
@@ -374,20 +370,8 @@ class CouchDB(object):
             document.
         @type attachment: C{str}
         """
-        # FIXME: where should we enforce unicode ?
-        docId = unicode(docId)
         # Responses: {u'_rev': -1825937535, u'_id': u'mydoc', ...}
         # 404 Object Not Found
-
-        # FIXME: remove these conversions and have our callers do them
-        docId = unicode(docId)
-        assert type(docId) is unicode, \
-            'docId is %r instead of unicode' % (type(docId), )
-
-        if revision:
-            revision = unicode(revision)
-            assert type(revision) is unicode, \
-                'revision is %r instead of unicode' % (type(revision), )
 
         docIdUri = docId.encode('utf-8')
         # on special url's like _design and _local no slash encoding is needed,
@@ -455,13 +439,8 @@ class CouchDB(object):
 
         # 404 Object not found (if database does not exist)
         # 409 Conflict, 500 Internal Server Error
-        if docId:
-            # FIXME: remove these conversions and have our callers do them
-            docId = unicode(docId)
-            assert type(docId) is unicode, \
-                'docId is %r instead of unicode' % (type(docId), )
 
-        if not isinstance(body, (str, unicode)):
+        if not isinstance(body, str):
             body = json.dumps(body)
         if docId is not None:
             d = self.put("/%s/%s" % (_namequote(dbName),
@@ -488,15 +467,6 @@ class CouchDB(object):
         """
         # Responses: {u'_rev': 1469561101, u'ok': True}
         # 500 Internal Server Error
-
-        docId = unicode(docId)
-        assert type(docId) is unicode, \
-            'docId is %r instead of unicode' % (type(docId), )
-
-        revision = unicode(revision)
-        assert type(revision) is unicode, \
-            'revision is %r instead of unicode' % (type(revision), )
-
 
         return self.delete("/%s/%s?%s" % (
                 _namequote(dbName),
@@ -565,7 +535,7 @@ class CouchDB(object):
         """
         Make a temporary view on the server.
         """
-        if not isinstance(view, (str, unicode)):
+        if not isinstance(view, str):
             view = json.dumps(view)
         d = self.post("/%s/_temp_view" % (_namequote(dbName), ), view,
             descr='tempView')
@@ -663,8 +633,7 @@ class CouchDB(object):
 
             return body
 
-        uurl = unicode(self.url_template % (uri, ))
-        url = uurl.encode('utf-8')
+        url = url.encode('utf-8')
 
         if not headers:
             headers = {}
@@ -745,7 +714,6 @@ class CouchDB(object):
         @type docId: unicode
         """
         # return cached version if in cache
-        assert type(docId) is unicode, 'docId %r is not unicode' % docId
 
         try:
             return self._cache.getObject(docId)
@@ -846,7 +814,7 @@ class MemoryCache(Cache):
         self._objects = True
 
     def mapped(self, key, obj):
-        assert type(key) is unicode, 'key %r is not unicode' % key
+        assert type(key) is str, 'key %r is not str' % key
         assert type(obj) is not defer.Deferred
         if not self._objects:
             return
@@ -856,7 +824,7 @@ class MemoryCache(Cache):
             self.cached += 1
 
     def store(self, key, value, operation='post'):
-        assert type(key) is unicode, 'key %r is not unicode' % key
+        assert type(key) is str, 'key %r is not str' % key
         self._docCache[key] = value
         self.cached += 1
         return defer.succeed(True)
