@@ -433,7 +433,7 @@ class CouchDB(object):
         @type attachments: C{dict}
         """
         document.setdefault("_attachments", {})
-        for name, data in attachments.iteritems():
+        for name, data in attachments.items():
             data = b64encode(data)
             document["_attachments"][name] = {"type": "base64", "data": data}
 
@@ -526,7 +526,7 @@ class CouchDB(object):
 
         # encode the rest of the values with JSON for use as query
         # arguments in the URI
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             if k == 'keys': # we do this below, for the full body
                 pass
             else:
@@ -558,7 +558,7 @@ class CouchDB(object):
         @type views: C{dict}
         """
         document.setdefault("views", {})
-        for name, data in views.iteritems():
+        for name, data in views.items():
             document["views"][name] = data
 
     def tempView(self, dbName, view):
