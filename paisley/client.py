@@ -12,7 +12,7 @@ import json
 
 from encodings import utf_8
 import logging
-import new
+import types
 import cookielib
 
 from urllib import urlencode, quote
@@ -158,7 +158,7 @@ class CouchDB(object):
                 pass
             self.log = FakeLog()
             for level in levels:
-                self.log.__dict__[level] = new.instancemethod(nullfn, self.log)
+                self.log.__dict__[level] = types.Methodtype(nullfn, self.log)
         else:
             self.log = logging.getLogger('paisley')
 
