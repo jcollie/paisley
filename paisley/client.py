@@ -25,6 +25,8 @@ from twisted.web.iweb import IBodyProducer
 from twisted.internet.defer import Deferred, maybeDeferred
 from twisted.internet.protocol import Protocol
 
+from zope.interface.declarations import implementer
+
 try:
     from base64 import b64encode
 except ImportError:
