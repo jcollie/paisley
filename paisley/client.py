@@ -15,7 +15,7 @@ import logging
 import types
 import http.cookiejar
 
-from urllib import urlencode, quote
+from urllib.parse import urlencode, quote
 from zope.interface import implements
 
 from twisted.internet import defer
